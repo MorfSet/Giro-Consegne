@@ -1,0 +1,16 @@
+{
+  "name": "Giro Consegne",
+  "short_name": "Giro",
+  "description": "Gestione clienti e giri di consegna",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16232E",
+  "theme_color": "#16232E",
+  "lang": "it",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

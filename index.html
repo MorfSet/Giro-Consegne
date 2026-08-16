@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#16232E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Giro Consegne</title>
+<style>
+  :root{
+    --ink:#16232E; --ink-soft:#4A5A68; --bg:#EDF0F3; --card:#FFFFFF;
+    --cargo:#F5B301; --cargo-ink:#3D2E00; --ok:#2E7D4F; --warn:#C0392B;
+    --line:#D5DBE1; --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:16px;}
+  body{padding-bottom:76px;}
+  header{background:var(--ink); color:#fff; padding:14px 16px 12px;
+    position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:10px;}
+  header .badge{background:var(--cargo); color:var(--cargo-ink); font-weight:800;
+    border-radius:8px; padding:4px 8px; font-size:13px; letter-spacing:.5px;}
+  header h1{font-size:18px; margin:0; font-weight:700; letter-spacing:.3px;}
+  main{padding:14px; max-width:640px; margin:0 auto;}
+
+  /* Bottom nav */
+  nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line);
+    display:flex; z-index:30;}
+  nav button{flex:1; border:0; background:none; padding:10px 4px 12px; font-size:12px;
+    color:var(--ink-soft); font-weight:600; display:flex; flex-direction:column; align-items:center; gap:3px;}
+  nav button .ic{font-size:22px; line-height:1;}
+  nav button.active{color:var(--ink);}
+  nav button.active .ic{filter:none;}
+  nav button.active::after{content:""; width:28px; height:3px; border-radius:2px; background:var(--cargo); margin-top:2px;}
+
+  .card{background:var(--card); border-radius:var(--radius); padding:14px;
+    box-shadow:0 1px 3px rgba(22,35,46,.08); margin-bottom:12px;}
+  .row{display:flex; gap:10px; align-items:center;}
+  .grow{flex:1; min-width:0;}
+  .muted{color:var(--ink-soft); font-size:14px;}
+  .small{font-size:13px;}
+  h2{font-size:16px; margin:4px 0 10px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft);}
+
+  button.btn{border:0; border-radius:12px; padding:13px 16px; font-size:16px; font-weight:700;
+    background:var(--ink); color:#fff; width:100%; margin-top:8px;}
+  button.btn.cargo{background:var(--cargo); color:var(--cargo-ink);}
+  button.btn.ghost{background:#fff; color:var(--ink); border:1.5px solid var(--line);}
+  button.btn.danger{background:#fff; color:var(--warn); border:1.5px solid var(--warn);}
+  button.btn.sm{width:auto; padding:9px 12px; font-size:14px; margin-top:0;}
+  button:active{transform:scale(.98);}
+
+  input[type=text],input[type=tel],textarea,select{
+    width:100%; border:1.5px solid var(--line); border-radius:10px; padding:12px;
+    font-size:16px; background:#fff; color:var(--ink); font-family:inherit;}
+  textarea{min-height:70px; resize:vertical;}
+  label{font-size:13px; font-weight:700; color:var(--ink-soft); display:block; margin:10px 0 4px;
+    text-transform:uppercase; letter-spacing:.5px;}
+
+  /* Client card */
+  .client{display:flex; gap:12px; align-items:center;}
+  .thumb{width:58px; height:58px; border-radius:10px; background:var(--bg); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:24px; overflow:hidden;
+    border:1px solid var(--line);}
+  .thumb img{width:100%; height:100%; object-fit:cover;}
+  .client .name{font-weight:700; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .client .addr{font-size:13px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .flag{display:inline-block; font-size:11px; font-weight:800; padding:2px 7px; border-radius:6px; margin-top:3px;}
+  .flag.warn{background:#FBE4E1; color:var(--warn);}
+  .flag.gps{background:#E2F0E8; color:var(--ok);}
+  .flag.nogps{background:#F0F0F0; color:var(--ink-soft);}
+
+  /* History */
+  .hist{border-left:3px solid var(--line); padding:8px 0 8px 12px; margin-left:6px;}
+  .hist.problema{border-color:var(--warn);}
+  .hist.ok{border-color:var(--ok);}
+  .hist .when{font-size:12px; color:var(--ink-soft); font-weight:700;}
+  .hist p{margin:3px 0 0; font-size:15px; white-space:pre-wrap;}
+
+  /* Route stops — waybill style */
+  .stop{display:flex; gap:12px; align-items:flex-start; position:relative; padding:10px 0;}
+  .stop .num{width:34px; height:34px; border-radius:50%; background:var(--cargo); color:var(--cargo-ink);
+    font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; z-index:1;}
+  .stop.start .num{background:var(--ink); color:#fff; font-size:15px;}
+  .stop:not(:last-child)::before{content:""; position:absolute; left:16px; top:44px; bottom:-10px;
+    border-left:2px dashed var(--cargo);}
+  .stop .dist{font-size:12px; color:var(--ink-soft); font-weight:700;}
+
+  .checkline{display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line);}
+  .checkline:last-child{border-bottom:0;}
+  .checkline input{width:22px; height:22px; accent-color:var(--cargo); flex-shrink:0;}
+
+  /* Modal */
+  .modal{position:fixed; inset:0; background:rgba(22,35,46,.55); z-index:50; display:none;
+    align-items:flex-end; justify-content:center;}
+  .modal.open{display:flex;}
+  .sheet{background:var(--bg); width:100%; max-width:640px; max-height:92vh; overflow-y:auto;
+    border-radius:18px 18px 0 0; padding:16px 14px 24px;}
+  .sheet .handle{width:44px; height:5px; border-radius:3px; background:var(--line); margin:0 auto 12px;}
+  .photo-big{width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:8px;}
+  .empty{text-align:center; padding:36px 16px; color:var(--ink-soft);}
+  .empty .ic{font-size:44px; display:block; margin-bottom:8px;}
+  .toast{position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--ink);
+    color:#fff; padding:10px 18px; border-radius:10px; font-size:14px; font-weight:600; z-index:99;
+    opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap;}
+  .pthumb{width:70px;height:70px;object-fit:cover;border-radius:8px;margin:4px 4px 0 0;border:1px solid var(--line);}
+  .pthumb.exp{width:100%;height:auto;}
+  .stopdone{background:#EAF6EF;border-radius:10px;padding:8px !important;margin:4px 0;}
+  .stopprob{background:#FBEAE7;border-radius:10px;padding:8px !important;margin:4px 0;}
+  .stbadge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;color:#fff;letter-spacing:.5px;}
+  .toast.show{opacity:1;}
+  .searchbar{position:relative; margin-bottom:12px;}
+  .searchbar input{padding-left:38px;}
+  .searchbar::before{content:"🔍"; position:absolute; left:12px; top:12px; font-size:15px;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="badge">GIRO</span>
+  <h1 id="headerTitle">Consegne</h1>
+  <span id="buildTag" style="margin-left:auto;font-size:11px;opacity:.55;font-weight:600;"></span>
+</header>
+
+<main id="main"></main>
+
+<nav>
+  <button id="nav-clienti" onclick="go('clienti')"><span class="ic">📦</span>Clienti</button>
+  <button id="nav-giro" onclick="go('giro')"><span class="ic">🗺️</span>Giro</button>
+  <button id="nav-storico" onclick="go('storico')"><span class="ic">📅</span>Storico</button>
+  <button id="nav-backup" onclick="go('backup')"><span class="ic">💾</span>Backup</button>
+</nav>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ IndexedDB ============ */
+let db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open('giroconsegne', 2);
+    r.onupgradeneeded = e=>{
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('clients')) d.createObjectStore('clients',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('routes'))  d.createObjectStore('routes',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('meta'))    d.createObjectStore('meta',{keyPath:'k'});
+      if(!d.objectStoreNames.contains('days'))    d.createObjectStore('days',{keyPath:'id'});
+    };
+    r.onsuccess = e=>{ db = e.target.result; res(); };
+    r.onerror = ()=>rej(r.error);
+  });
+}
+function tx(store, mode, fn){
+  return new Promise((res,rej)=>{
+    const t = db.transaction(store, mode);
+    const s = t.objectStore(store);
+    const out = fn(s);
+    t.oncomplete = ()=>res(out && out.result !== undefined ? out.result : undefined);
+    t.onerror = ()=>rej(t.error);
+  });
+}
+const putClient = c=>tx('clients','readwrite',s=>s.put(c));
+const delClient = id=>tx('clients','readwrite',s=>s.delete(id));
+const putRoute  = r=>tx('routes','readwrite',s=>s.put(r));
+const delRoute  = id=>tx('routes','readwrite',s=>s.delete(id));
+const putDay    = d=>tx('days','readwrite',s=>s.put(d));
+const delDay    = id=>tx('days','readwrite',s=>s.delete(id));
+function getAll(store){
+  return new Promise((res,rej)=>{
+    const r = db.transaction(store).objectStore(store).getAll();
+    r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error);
+  });
+}
+const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ============ State ============ */
+let clients = [], routes = [], days = [], view = 'clienti', search = '', giroSearch = '';
+let START = { name:'SIGENE (magazzino)', lat:38.0024144, lng:12.5401633 };
+
+async function loadAll(){
+  clients = await getAll('clients');
+  routes  = await getAll('routes');
+  days    = await getAll('days');
+  days.sort((a,b)=>b.ts-a.ts);
+  const meta = await getAll('meta');
+  const s = meta.find(m=>m.k==='start');
+  if(s) START = s.v;
+  restoreSession(meta);
+  clients.sort((a,b)=>a.name.localeCompare(b.name,'it'));
+}
+
+/* ============ Utils ============ */
+const esc = s=>(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function haversine(a,b){
+  const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function fmtKm(k){ return k<1 ? Math.round(k*1000)+' m' : k.toFixed(1)+' km'; }
+function fmtDate(ts){
+  return new Date(ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function hasGPS(c){ return typeof c.lat==='number' && typeof c.lng==='number'; }
+function fmtWindow(c){
+  if(!c.oraDa && !c.oraA) return '';
+  return '⏰ ' + (c.oraDa||'…') + '–' + (c.oraA||'…');
+}
+function lastProblem(c){
+  const h=(c.history||[]).filter(x=>x.type==='problema');
+  return h.length ? h[h.length-1] : null;
+}
+
+/* Photo: resize to max 900px JPEG */
+function processPhoto(file){
+  return new Promise((res,rej)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const max = 900, ratio = Math.min(1, max/Math.max(img.width,img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width*ratio); cv.height = Math.round(img.height*ratio);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg',0.72));
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ============ Navigation ============ */
+function go(v){
+  view = v; search='';
+  if(!navFromPop) history.pushState({view:v}, '');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+v).classList.add('active');
+  document.getElementById('headerTitle').textContent =
+    v==='clienti'?'Clienti':(v==='giro'?'Crea il giro':(v==='storico'?'Storico giri':'Backup dati'));
+  render();
+}
+
+/* ============ Render: Clienti ============ */
+function renderClienti(){
+  const list = clients.filter(c=>{
+    const q = search.toLowerCase();
+    return !q || c.name.toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q);
+  });
+  let html = `
+    <div class="searchbar"><input type="text" placeholder="Cerca cliente o via..." value="${esc(search)}"
+      oninput="search=this.value; renderClientList();"></div>
+    <button class="btn cargo" onclick="editClient(null)">+ Nuovo cliente</button>
+    <div id="clientList" style="margin-top:12px;"></div>`;
+  document.getElementById('main').innerHTML = html;
+  renderClientList();
+}
+function renderClientList(){
+  const q = search.toLowerCase();
+  const list = clients.filter(c=>!q || c.name.toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q));
+  const el = document.getElementById('clientList');
+  if(!list.length){
+    el.innerHTML = `<div class="empty"><span class="ic">📦</span>${clients.length? 'Nessun risultato.' : 'Ancora nessun cliente.<br>Aggiungi il primo con il pulsante giallo.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(c=>{
+    const prob = lastProblem(c);
+    return `<div class="card client" onclick="showClient('${c.id}')">
+      <div class="thumb">${c.photo?`<img src="${c.photo}" alt="">`:'🏪'}</div>
+      <div class="grow">
+        <div class="name">${esc(c.name)}</div>
+        <div class="addr">${esc(c.address||'—')}</div>
+        ${hasGPS(c)?'<span class="flag gps">GPS ✓</span>':'<span class="flag nogps">no GPS</span>'}
+        ${fmtWindow(c)?`<span class="flag" style="background:#FFF3D6;color:#7A5800;">${fmtWindow(c)}</span>`:''}
+        ${prob?`<span class="flag warn">⚠ ${esc(prob.text.slice(0,26))}${prob.text.length>26?'…':''}</span>`:''}
+      </div>
+      ${c.phone?`<a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()" style="text-decoration:none;font-size:22px;padding:8px;background:var(--bg);border-radius:10px;">📞</a>`:''}
+      <div style="font-size:20px;color:var(--line);">›</div>
+    </div>`;
+  }).join('');
+}
+
+/* ============ Client detail sheet ============ */
+function openSheet(html){
+  document.getElementById('sheet').innerHTML =
+    '<div class="handle"></div><button class="btn ghost sm" style="margin-bottom:10px;" onclick="closeSheet()">← Indietro</button>'+html;
+  document.getElementById('modal').classList.add('open');
+  history.pushState({view:view, sheet:1}, '');
+}
+function closeSheet(){
+  if(document.getElementById('modal').classList.contains('open')) history.back();
+}
+window.addEventListener('popstate', e=>{
+  const m = document.getElementById('modal');
+  if(m.classList.contains('open')){ m.classList.remove('open'); return; }
+  if(e.state && e.state.view){ navFromPop = true; go(e.state.view); navFromPop = false; }
+});
+let navFromPop = false;
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeSheet(); });
+
+function showClient(id){
+  const c = clients.find(x=>x.id===id); if(!c) return;
+  const hist = (c.history||[]).slice().reverse();
+  openSheet(`
+    ${c.photo?`<img class="photo-big" src="${c.photo}" alt="Foto ${esc(c.name)}">`:''}
+    <div class="card">
+      <div style="font-size:19px;font-weight:800;">${esc(c.name)}</div>
+      <div class="muted">${esc(c.address||'')}</div>
+      ${fmtWindow(c)?`<div style="margin-top:6px;font-weight:700;color:#7A5800;">${fmtWindow(c)} ricezione merce</div>`:''}
+      ${c.phone?`<div style="margin-top:8px;"><a href="tel:${esc(c.phone)}" style="color:var(--ink);font-weight:700;">📞 ${esc(c.phone)}</a></div>`:''}
+      ${c.agente||c.agentePhone?`<div style="margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:10px;">
+        <div class="small" style="font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);">Agente</div>
+        <div class="row" style="margin-top:2px;">
+          <div class="grow" style="font-weight:700;">${esc(c.agente||'—')}</div>
+          ${c.agentePhone?`<a href="tel:${esc(c.agentePhone)}" class="btn ghost sm" style="text-decoration:none;text-align:center;">📞 Chiama agente</a>`:''}
+        </div>
+      </div>`:''}
+      ${c.notes?`<div style="margin-top:8px;white-space:pre-wrap;">${esc(c.notes)}</div>`:''}
+      <div class="row" style="margin-top:12px;gap:8px;">
+        <button class="btn ghost sm grow" onclick="editClient('${c.id}')">✏️ Modifica</button>
+        ${hasGPS(c)?`<button class="btn ghost sm grow" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}&travelmode=driving')">🧭 Naviga</button>`
+          :(c.address?`<button class="btn ghost sm grow" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.address)}&travelmode=driving')">🧭 Naviga</button>`:'')}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Nuova nota</h2>
+      <select id="noteType">
+        <option value="nota">📝 Nota</option>
+        <option value="problema">⚠️ Problema</option>
+        <option value="ok">✅ Consegna OK</option>
+      </select>
+      <textarea id="noteText" placeholder="Es: rifiutato 1 collo danneggiato, firma della titolare..."></textarea>
+      <button class="btn" onclick="addNote('${c.id}')">Salva nota</button>
+    </div>
+    <div class="card">
+      <h2>Storico (${hist.length})</h2>
+      ${hist.length ? hist.map(h=>`
+        <div class="hist ${h.type}">
+          <div class="when">${h.type==='problema'?'⚠️ ':h.type==='ok'?'✅ ':'📝 '}${fmtDate(h.ts)}</div>
+          <p>${esc(h.text)}</p>
+          ${(h.photos&&h.photos.length)?`<div>${h.photos.map(p=>`<img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">`).join('')}</div>`:''}
+        </div>`).join('') : '<div class="muted">Nessuna nota ancora.</div>'}
+    </div>
+    <button class="btn danger" onclick="removeClient('${c.id}')">Elimina cliente</button>
+  `);
+}
+async function addNote(id){
+  const c = clients.find(x=>x.id===id); if(!c) return;
+  const text = document.getElementById('noteText').value.trim();
+  if(!text){ toast('Scrivi qualcosa nella nota'); return; }
+  const type = document.getElementById('noteType').value;
+  (c.history = c.history||[]).push({ts:Date.now(), type, text});
+  await putClient(c);
+  toast('Nota salvata');
+  showClient(id);
+}
+async function removeClient(id){
+  const c = clients.find(x=>x.id===id);
+  if(!confirm(`Eliminare "${c.name}" e tutto lo storico?`)) return;
+  await delClient(id);
+  await loadAll(); closeSheet(); render();
+  toast('Cliente eliminato');
+}
+
+/* ============ Edit / new client ============ */
+let tempPhoto = null;
+function editClient(id){
+  const c = id ? clients.find(x=>x.id===id) : {name:'',address:'',phone:'',notes:''};
+  tempPhoto = c.photo || null;
+  openSheet(`
+    <div class="card">
+      <h2>${id?'Modifica cliente':'Nuovo cliente'}</h2>
+      <label>Nome negozio *</label>
+      <input type="text" id="f_name" value="${esc(c.name)}" placeholder="Es: Pizza Planet">
+      <label>Indirizzo</label>
+      <input type="text" id="f_addr" value="${esc(c.address||'')}" placeholder="Via Asmara 35, Bonagia">
+      <label>Telefono</label>
+      <input type="tel" id="f_phone" value="${esc(c.phone||'')}" placeholder="+39 ...">
+      <label>Rappresentante / agente (nome o codice)</label>
+      <input type="text" id="f_agente" value="${esc(c.agente||'')}" placeholder="Es: AG-042 Rossi Marco">
+      <label>Telefono agente</label>
+      <input type="tel" id="f_agphone" value="${esc(c.agentePhone||'')}" placeholder="+39 ...">
+      <label>Orario di ricezione merce</label>
+      <div class="row" style="gap:8px;">
+        <div class="grow"><div class="muted small">Dalle</div><input type="time" id="f_oraDa" value="${esc(c.oraDa||'')}"></div>
+        <div class="grow"><div class="muted small">Alle</div><input type="time" id="f_oraA" value="${esc(c.oraA||'')}"></div>
+      </div>
+      <div class="muted small" style="margin-top:4px;">Lascia vuoto se ricevono a qualsiasi ora.</div>
+      <label>Note fisse (orari, dove parcheggiare, chi firma...)</label>
+      <textarea id="f_notes" placeholder="Es: consegnare sul retro, chiedere di Ciccio">${esc(c.notes||'')}</textarea>
+
+      <label>Foto (facciata / referente)</label>
+      <div id="photoPrev">${tempPhoto?`<img class="photo-big" src="${tempPhoto}">`:''}</div>
+      <input type="file" id="f_photo" accept="image/*" capture="environment" style="display:none"
+        onchange="onPhoto(this)">
+      <button class="btn ghost" onclick="document.getElementById('f_photo').click()">📷 ${tempPhoto?'Cambia foto':'Scatta / scegli foto'}</button>
+
+      <label>Posizione GPS ${hasGPS(c)?`— salvata ✓ (${c.lat.toFixed(5)}, ${c.lng.toFixed(5)})`:'— non salvata'}</label>
+      <div class="muted small" style="margin-bottom:6px;">Metodo 1: premi il pulsante quando sei davanti al negozio.</div>
+      <button class="btn ghost" id="gpsBtn" onclick="grabGPS()">📍 Salva posizione attuale</button>
+      <div class="muted small" style="margin:12px 0 6px;">Metodo 2: cerca il negozio su Google Maps, <b>tieni premuto sul punto esatto</b>, tocca le coordinate in alto per copiarle, poi incollale qui (va bene anche un link di Maps condiviso):</div>
+      <div class="row" style="gap:8px;">
+        <input type="text" id="f_paste" class="grow" placeholder="38.08764, 12.65915 oppure link Maps" oninput="parsePaste(this.value)">
+        <button class="btn ghost sm" onclick="openMapsSearch()">🌍 Apri Maps</button>
+      </div>
+      <div id="pasteStatus" class="small" style="margin-top:4px;font-weight:700;"></div>
+      <input type="hidden" id="f_lat" value="${hasGPS(c)?c.lat:''}">
+      <input type="hidden" id="f_lng" value="${hasGPS(c)?c.lng:''}">
+
+      <button class="btn cargo" onclick="saveClient('${id||''}')">💾 Salva cliente</button>
+    </div>
+  `);
+}
+async function onPhoto(input){
+  if(!input.files || !input.files[0]) return;
+  try{
+    tempPhoto = await processPhoto(input.files[0]);
+    document.getElementById('photoPrev').innerHTML = `<img class="photo-big" src="${tempPhoto}">`;
+  }catch(e){ toast('Errore lettura foto'); }
+}
+function openMapsSearch(){
+  const q = document.getElementById('f_addr').value.trim() || document.getElementById('f_name').value.trim();
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q||''),'_blank');
+}
+function parsePaste(txt){
+  const st = document.getElementById('pasteStatus');
+  txt = (txt||'').trim();
+  try{ txt = decodeURIComponent(txt); }catch(e){ /* link con % non validi: uso il testo così com'è */ }
+  if(!txt){ st.textContent=''; return; }
+  let lat=null, lng=null, m, viewport=false;
+  // 1) Pin del luogo: !3d..!4d.. — è la posizione VERA del negozio (prendo l'ultima occorrenza)
+  const pins = [...txt.matchAll(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/g)];
+  if(pins.length){ m = pins[pins.length-1]; lat=+m[1]; lng=+m[2]; }
+  // 2) Parametri espliciti: q= query= ll= destination=
+  else if((m = txt.match(/[?&](?:q|query|ll|destination)=(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/))) { lat=+m[1]; lng=+m[2]; }
+  // 3) Coordinate pure incollate: "38.08764, 12.65915"
+  else if((m = txt.match(/^(-?\d{1,3}\.\d+)[\s,;]+(-?\d{1,3}\.\d+)$/))) { lat=+m[1]; lng=+m[2]; }
+  // 4) Ultima spiaggia: @lat,lng = centro della mappa, NON il negozio
+  else if((m = txt.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/))) { lat=+m[1]; lng=+m[2]; viewport=true; }
+  if(lat!==null && Math.abs(lat)<=90 && Math.abs(lng)<=180){
+    document.getElementById('f_lat').value = lat;
+    document.getElementById('f_lng').value = lng;
+    if(viewport){
+      st.style.color = '#B8860B';
+      st.textContent = `⚠ Letta la posizione del CENTRO mappa (${lat.toFixed(5)}, ${lng.toFixed(5)}). Se non era centrata sul negozio, meglio: tocco lungo sul punto → copia coordinate → incolla qui.`;
+    } else {
+      st.style.color = 'var(--ok)';
+      st.textContent = `✓ Coordinate lette: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+  } else if(/goo\.gl|maps\.app/.test(txt)){
+    const url = (txt.match(/https?:\/\/\S+/)||[txt])[0];
+    st.style.color = 'var(--warn)';
+    st.innerHTML = '✗ I link abbreviati non contengono le coordinate. ' +
+      `<button class="btn ghost sm" style="margin-top:6px;" onclick="window.open('${url.replace(/'/g,'')}','_blank')">🌍 Apri questo link in Maps</button>` +
+      '<div class="muted small" style="margin-top:4px;">Poi: tocco lungo sul pin rosso → tocca le coordinate in alto → copia → incolla qui.</div>';
+  } else {
+    st.style.color = 'var(--warn)';
+    st.textContent = '✗ Formato non riconosciuto. Esempio valido: 38.08764, 12.65915';
+  }
+}
+function grabGPS(){
+  const btn = document.getElementById('gpsBtn');
+  btn.textContent = '📡 Ricerca GPS...';
+  navigator.geolocation.getCurrentPosition(p=>{
+    document.getElementById('f_lat').value = p.coords.latitude;
+    document.getElementById('f_lng').value = p.coords.longitude;
+    btn.textContent = `📍 Salvata ✓ (precisione ${Math.round(p.coords.accuracy)} m)`;
+  }, err=>{
+    btn.textContent = '📍 Salva posizione attuale';
+    toast('GPS non disponibile: attiva la posizione');
+  }, {enableHighAccuracy:true, timeout:12000});
+}
+async function saveClient(id){
+  const name = document.getElementById('f_name').value.trim();
+  if(!name){ toast('Il nome è obbligatorio'); return; }
+  const lat = parseFloat(document.getElementById('f_lat').value);
+  const lng = parseFloat(document.getElementById('f_lng').value);
+  const existing = id ? clients.find(x=>x.id===id) : null;
+  const c = {
+    id: id || uid(),
+    name,
+    address: document.getElementById('f_addr').value.trim(),
+    phone:   document.getElementById('f_phone').value.trim(),
+    agente:      document.getElementById('f_agente').value.trim(),
+    agentePhone: document.getElementById('f_agphone').value.trim(),
+    oraDa: document.getElementById('f_oraDa').value,
+    oraA:  document.getElementById('f_oraA').value,
+    notes:   document.getElementById('f_notes').value.trim(),
+    photo:   tempPhoto,
+    history: existing ? (existing.history||[]) : [],
+  };
+  if(!isNaN(lat) && !isNaN(lng)){ c.lat=lat; c.lng=lng; }
+  await putClient(c);
+  await loadAll(); closeSheet(); render();
+  toast('Cliente salvato');
+}
+
+/* ============ Route builder ============ */
+let selected = new Set();
+
+function renderGiro(){
+  const saved = routes.map(r=>`
+    <div class="card row" style="cursor:pointer;">
+      <div class="grow" onclick="loadRoute('${r.id}')">
+        <div style="font-weight:700;">🗂 ${esc(r.name)}</div>
+        <div class="muted small">${r.clientIds.length} tappe</div>
+      </div>
+      <button class="btn ghost sm" onclick="removeRoute('${r.id}')">🗑</button>
+    </div>`).join('');
+
+  document.getElementById('main').innerHTML = `
+    ${routes.length?`<h2>Giri salvati</h2>${saved}`:''}
+    <h2>Seleziona le consegne di oggi <span id="selCount" style="color:var(--cargo-ink);background:var(--cargo);border-radius:6px;padding:1px 7px;">${selected.size}</span></h2>
+    <div class="searchbar"><input type="text" placeholder="Cerca cliente o via..." value="${esc(giroSearch)}"
+      oninput="giroSearch=this.value; renderPickList();"></div>
+    <div class="card" id="pickList"></div>
+    <button class="btn cargo" onclick="buildRoute()">⚡ Calcola giro ottimale</button>
+    <div id="routeResult"></div>
+    <div class="card" style="margin-top:16px;">
+      <h2>Punto di partenza</h2>
+      <div style="font-weight:700;">${esc(START.name)}</div>
+      <div class="muted small">${START.lat.toFixed(5)}, ${START.lng.toFixed(5)}</div>
+      <button class="btn ghost sm" style="margin-top:8px;" onclick="setStartHere()">📍 Usa la mia posizione attuale come partenza</button>
+    </div>`;
+  renderPickList();
+  if(lastOrder.length) renderRouteResult(lastOrder.filter(c=>!hasGPS(c)).length, true);
+}
+function renderPickList(){
+  const q = giroSearch.toLowerCase();
+  const list = clients.filter(c=>!q || c.name.toLowerCase().includes(q) || (c.address||'').toLowerCase().includes(q));
+  const el = document.getElementById('pickList');
+  if(!el) return;
+  if(!clients.length){
+    el.innerHTML = '<div class="empty"><span class="ic">🗺️</span>Prima aggiungi qualche cliente nella scheda Clienti.</div>';
+    return;
+  }
+  el.innerHTML = list.length ? list.map(c=>`
+    <label class="checkline">
+      <input type="checkbox" ${selected.has(c.id)?'checked':''} onchange="toggleSel('${c.id}',this.checked)">
+      <div class="grow">
+        <div style="font-weight:700;">${esc(c.name)}</div>
+        <div class="muted small">${esc(c.address||'')} ${hasGPS(c)?'· GPS ✓':'· <b>manca GPS</b>'} ${fmtWindow(c)?'· <b style="color:#7A5800;">'+fmtWindow(c)+'</b>':''}</div>
+      </div>
+    </label>`).join('')
+  : '<div class="muted" style="padding:10px 4px;">Nessun cliente trovato per "'+esc(giroSearch)+'". <b>La selezione fatta resta valida.</b></div>';
+}
+function toggleSel(id,on){
+  on ? selected.add(id) : selected.delete(id);
+  const sc = document.getElementById('selCount');
+  if(sc) sc.textContent = selected.size;
+  saveSession();
+}
+async function saveSession(){
+  try{ await tx('meta','readwrite',s=>s.put({k:'session', v:{sel:[...selected], ord:lastOrder.map(c=>c.id)}})); }catch(e){}
+}
+function restoreSession(meta){
+  const s = meta.find(m=>m.k==='session');
+  if(!s || !s.v) return;
+  selected = new Set((s.v.sel||[]).filter(id=>clients.some(c=>c.id===id)));
+  lastOrder = (s.v.ord||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+}
+
+function setStartHere(){
+  navigator.geolocation.getCurrentPosition(async p=>{
+    START = {name:'Posizione personalizzata', lat:p.coords.latitude, lng:p.coords.longitude};
+    await tx('meta','readwrite',s=>s.put({k:'start', v:START}));
+    toast('Partenza aggiornata'); renderGiro();
+  }, ()=>toast('GPS non disponibile'));
+}
+
+/* Nearest neighbour + 2-opt */
+function optimize(points){
+  if(points.length<=1) return points;
+  let route=[], pool=[...points], cur=START;
+  while(pool.length){
+    let bi=0, bd=Infinity;
+    pool.forEach((p,i)=>{ const d=haversine(cur,p); if(d<bd){bd=d;bi=i;} });
+    cur = pool.splice(bi,1)[0]; route.push(cur);
+  }
+  // 2-opt
+  const dist = r=>{
+    let t=haversine(START,r[0]);
+    for(let i=0;i<r.length-1;i++) t+=haversine(r[i],r[i+1]);
+    return t;
+  };
+  let improved=true;
+  while(improved){
+    improved=false;
+    for(let i=0;i<route.length-1;i++){
+      for(let j=i+1;j<route.length;j++){
+        const alt = route.slice(0,i).concat(route.slice(i,j+1).reverse(), route.slice(j+1));
+        if(dist(alt) < dist(route)-0.001){ route=alt; improved=true; }
+      }
+    }
+  }
+  return route;
+}
+
+let lastOrder = [];
+function buildRoute(){
+  const sel = clients.filter(c=>selected.has(c.id));
+  if(!sel.length){ toast('Seleziona almeno una consegna'); return; }
+  const withGPS = sel.filter(hasGPS), noGPS = sel.filter(c=>!hasGPS(c));
+  lastOrder = optimize(withGPS).concat(noGPS); // no-GPS in coda
+  saveSession();
+  renderRouteResult(noGPS.length);
+}
+function renderRouteResult(noGpsCount, restored){
+  let cum=0, prev=START;
+  const stopsHtml = lastOrder.map((c,i)=>{
+    let leg='';
+    if(hasGPS(c)){ const d=haversine(prev,c); cum+=d; leg=fmtKm(d); prev=c; }
+    return `<div class="stop">
+      <div class="num">${i+1}</div>
+      <div class="grow">
+        <div style="font-weight:700;">${esc(c.name)}</div>
+        <div class="muted small">${esc(c.address||'')}</div>
+        ${fmtWindow(c)?`<div class="dist" style="color:#7A5800;">${fmtWindow(c)} ricezione</div>`:''}
+        ${leg?`<div class="dist">↑ ${leg} dalla tappa precedente</div>`:'<div class="dist">⚠ senza GPS — messa in coda</div>'}
+      </div>
+      ${c.phone?`<a href="tel:${esc(c.phone)}" style="text-decoration:none;font-size:20px;padding:6px;background:var(--bg);border-radius:10px;align-self:center;">📞</a>`:''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('routeResult').innerHTML = `
+    <div class="card" style="margin-top:12px;">
+      <h2>Ordine di consegna · ~${fmtKm(cum)} totali</h2>
+      <div class="stop start"><div class="num">S</div>
+        <div class="grow"><div style="font-weight:700;">${esc(START.name)}</div><div class="muted small">Partenza</div></div>
+      </div>
+      ${stopsHtml}
+      ${noGpsCount?`<div class="muted small" style="margin-top:6px;">⚠ ${noGpsCount} tappe senza GPS: salvane la posizione la prossima volta che ci passi, e verranno ottimizzate anche loro.</div>`:''}
+      <button class="btn cargo" onclick="startDay()">▶️ Avvia giro (traccia le consegne)</button>
+      <button class="btn" onclick="openInMaps()">🧭 Apri percorso in Google Maps</button>
+      <button class="btn ghost" onclick="saveCurrentRoute()">💾 Salva come giro ricorrente</button>
+    </div>`;
+  if(!restored) document.getElementById('routeResult').scrollIntoView({behavior:'smooth'});
+  else { const rr=document.getElementById('routeResult'); rr.insertAdjacentHTML('afterbegin','<div class="muted small" style="margin-top:8px;">↻ Sessione ripristinata: questo è il giro che stavi preparando.</div>'); }
+}
+function openInMaps(){
+  if(!lastOrder.length) return;
+  const pt = c=> hasGPS(c) ? `${c.lat},${c.lng}` : encodeURIComponent(c.address||c.name);
+  const stops = lastOrder.slice(0, 10); // limite waypoints Maps
+  if(lastOrder.length>10) toast('Maps accetta max 10 tappe: aperte le prime 10');
+  const dest = pt(stops[stops.length-1]);
+  const way = stops.slice(0,-1).map(pt).join('|');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${START.lat},${START.lng}&destination=${dest}&travelmode=driving`;
+  if(way) url += `&waypoints=${way}`;
+  window.open(url,'_blank');
+}
+async function saveCurrentRoute(){
+  const name = prompt('Nome del giro (es: Giro Custonaci):');
+  if(!name) return;
+  await putRoute({id:uid(), name, clientIds:lastOrder.map(c=>c.id)});
+  await loadAll(); renderGiro();
+  toast('Giro salvato');
+}
+function loadRoute(id){
+  const r = routes.find(x=>x.id===id); if(!r) return;
+  selected = new Set(r.clientIds.filter(cid=>clients.some(c=>c.id===cid)));
+  renderGiro(); buildRoute();
+}
+async function removeRoute(id){
+  if(!confirm('Eliminare questo giro salvato?')) return;
+  await delRoute(id); await loadAll(); renderGiro();
+}
+
+/* ============ Storico giornate ============ */
+async function startDay(){
+  if(!lastOrder.length){ toast('Prima calcola il giro'); return; }
+  const d = {
+    id: uid(), ts: Date.now(),
+    date: new Date().toLocaleDateString('it-IT',{weekday:'short', day:'2-digit', month:'2-digit', year:'numeric'}),
+    stops: lastOrder.map(c=>({clientId:c.id, name:c.name, status:'pending', note:''}))
+  };
+  await putDay(d);
+  selected = new Set(); lastOrder = []; await saveSession();
+  await loadAll();
+  go('storico');
+  toast('Giro avviato: segna le consegne man mano');
+}
+function dayStatus(d){
+  const st = d.stops.map(s=>s.status);
+  if(st.some(s=>s==='problema')) return {ic:'🔴', label:'Con problemi', color:'var(--warn)'};
+  if(st.every(s=>s==='ok'))      return {ic:'🟢', label:'Tutto OK', color:'var(--ok)'};
+  return {ic:'🟡', label:'In corso / incompleto', color:'#B8860B'};
+}
+let openDayId = null;
+function renderStorico(){
+  if(!days.length){
+    document.getElementById('main').innerHTML =
+      '<div class="empty"><span class="ic">📅</span>Nessun giro tracciato.<br>Calcola un giro e premi <b>▶️ Avvia giro</b>.</div>';
+    return;
+  }
+  if(openDayId===null) openDayId = days[0].id;
+  document.getElementById('main').innerHTML = days.map(d=>{
+    const st = dayStatus(d);
+    const open = d.id===openDayId;
+    const done = d.stops.filter(s=>s.status!=='pending').length;
+    return `<div class="card">
+      <div class="row" style="cursor:pointer;" onclick="openDayId=${open?'null':`'${d.id}'`}; renderStorico();">
+        <div style="font-size:26px;">${st.ic}</div>
+        <div class="grow">
+          <div style="font-weight:800;">${esc(d.date)}</div>
+          <div class="muted small">${done}/${d.stops.length} consegne · <b style="color:${st.color}">${st.label}</b></div>
+        </div>
+        <div style="font-size:18px;color:var(--line);">${open?'▾':'▸'}</div>
+      </div>
+      ${open ? `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:6px;">
+        ${d.stops.map((s,i)=>{
+          const cl = clients.find(x=>x.id===s.clientId);
+          const nav = cl ? (hasGPS(cl) ? `https://www.google.com/maps/dir/?api=1&destination=${cl.lat},${cl.lng}&travelmode=driving`
+                        : (cl.address ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cl.address)}&travelmode=driving` : '')) : '';
+          const rowCls = s.status==='ok' ? 'stopdone' : s.status==='problema' ? 'stopprob' : '';
+          const badge = s.status==='ok' ? '<span class="stbadge" style="background:var(--ok);">CONSEGNATA ✓</span>'
+                      : s.status==='problema' ? '<span class="stbadge" style="background:var(--warn);">PROBLEMA ⚠</span>' : '';
+          return `
+          <div class="checkline ${rowCls}" style="align-items:flex-start;">
+            <div style="font-weight:800;width:22px;">${i+1}.</div>
+            <div class="grow">
+              <div style="font-weight:700;">${esc(s.name)} ${badge}</div>
+              ${cl&&fmtWindow(cl)?`<div class="muted small" style="color:#7A5800;font-weight:700;">${fmtWindow(cl)} ricezione</div>`:''}
+              <div class="muted small" style="margin-top:2px;">Ora prevista: <input type="time" value="${esc(s.eta||'')}" onchange="setEta('${d.id}',${i},this.value)" style="width:auto;padding:4px 8px;font-size:14px;border:1.5px solid var(--line);border-radius:8px;"></div>
+              ${s.note?`<div class="muted small" style="margin-top:4px;">⚠ ${esc(s.note)}</div>`:''}
+              ${(s.photos&&s.photos.length)?`<div>${s.photos.map(p=>`<img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">`).join('')}</div>`:''}
+              <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;">
+                ${s.status==='pending'?`
+                <button class="btn ghost sm" style="border-color:var(--ok);color:var(--ok);" onclick="setStop('${d.id}',${i},'ok')">Consegnata</button>
+                <button class="btn ghost sm" style="border-color:var(--warn);color:var(--warn);" onclick="setStop('${d.id}',${i},'problema')">Problema</button>
+                <button class="btn ghost sm" onclick="moveStop('${d.id}',${i},-1)">▲</button>
+                <button class="btn ghost sm" onclick="moveStop('${d.id}',${i},1)">▼</button>
+                ${cl&&cl.phone?`<a href="tel:${esc(cl.phone)}" class="btn ghost sm" style="text-decoration:none;">📞</a>`:''}
+                ${cl&&cl.agentePhone?`<a href="tel:${esc(cl.agentePhone)}" class="btn ghost sm" style="text-decoration:none;" title="Chiama agente">👔📞</a>`:''}
+                ${nav?`<button class="btn ghost sm" onclick="window.open('${nav}','_blank')">🧭</button>`:''}
+                ` : `<button class="btn ghost sm" onclick="setStop('${d.id}',${i},'pending')">↺ Riapri</button>`}
+              </div>
+            </div>
+          </div>`;}).join('')}
+        <button class="btn danger" onclick="removeDay('${d.id}')">Elimina questa giornata</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+async function setStop(dayId, idx, status){
+  if(status==='problema'){ openProblem(dayId, idx); return; }
+  const d = days.find(x=>x.id===dayId); if(!d) return;
+  const s = d.stops[idx];
+  s.status = status; s.note=''; s.photos=[];
+  await putDay(d);
+  await loadAll(); openDayId = dayId; renderStorico();
+}
+async function moveStop(dayId, idx, dir){
+  const d = days.find(x=>x.id===dayId); if(!d) return;
+  const j = idx + dir;
+  if(j < 0 || j >= d.stops.length) return;
+  [d.stops[idx], d.stops[j]] = [d.stops[j], d.stops[idx]];
+  await putDay(d);
+  await loadAll(); openDayId = dayId; renderStorico();
+}
+async function setEta(dayId, idx, val){
+  const d = days.find(x=>x.id===dayId); if(!d) return;
+  d.stops[idx].eta = val;
+  await putDay(d);
+  toast('Ora prevista salvata');
+}
+/* --- Segnalazione problema con foto --- */
+let probPhotos = [];
+function openProblem(dayId, idx){
+  const d = days.find(x=>x.id===dayId); if(!d) return;
+  probPhotos = [];
+  openSheet(`
+    <div class="card">
+      <h2>⚠️ Problema: ${esc(d.stops[idx].name)}</h2>
+      <label>Cosa è successo?</label>
+      <textarea id="probText" placeholder="Es: rifiutati 2 colli danneggiati, manca la firma..."></textarea>
+      <label>Foto (colli danneggiati, DDT annotato...)</label>
+      <div id="probThumbs"></div>
+      <input type="file" id="probFiles" accept="image/*" capture="environment" multiple style="display:none" onchange="onProbPhotos(this)">
+      <button class="btn ghost" onclick="document.getElementById('probFiles').click()">📷 Scatta / aggiungi foto</button>
+      <div class="muted small" style="margin-top:4px;">Puoi aggiungere quante foto vuoi, anche in più riprese.</div>
+      <button class="btn cargo" onclick="saveProblem('${dayId}',${idx})">Salva problema</button>
+    </div>
+  `);
+}
+async function onProbPhotos(input){
+  if(!input.files) return;
+  for(const f of input.files){
+    try{ probPhotos.push(await processPhoto(f)); }catch(e){}
+  }
+  input.value = '';
+  document.getElementById('probThumbs').innerHTML =
+    probPhotos.map((p,i)=>`<span style="position:relative;display:inline-block;">
+      <img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">
+      <button onclick="probPhotos.splice(${i},1);onProbPhotos({files:null,value:''})" style="position:absolute;top:0;right:2px;border:0;background:var(--warn);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:800;">×</button>
+    </span>`).join('');
+}
+async function saveProblem(dayId, idx){
+  const d = days.find(x=>x.id===dayId); if(!d) return;
+  const s = d.stops[idx];
+  const text = document.getElementById('probText').value.trim() || 'Problema segnalato';
+  s.status = 'problema'; s.note = text; s.photos = probPhotos.slice();
+  const c = clients.find(x=>x.id===s.clientId);
+  if(c){ (c.history=c.history||[]).push({ts:Date.now(), type:'problema', text, photos:s.photos}); await putClient(c); }
+  await putDay(d);
+  closeSheet();
+  await loadAll(); openDayId = dayId; renderStorico();
+  toast('Problema registrato' + (s.photos.length?` con ${s.photos.length} foto`:''));
+}
+async function removeDay(id){
+  if(!confirm('Eliminare questa giornata dallo storico?')) return;
+  await delDay(id); openDayId=null;
+  await loadAll(); renderStorico();
+}
+
+/* ============ Backup ============ */
+function renderBackup(){
+  const nPhotos = clients.filter(c=>c.photo).length;
+  const nNotes = clients.reduce((a,c)=>a+(c.history||[]).length,0);
+  document.getElementById('main').innerHTML = `
+    <div class="card">
+      <h2>I tuoi dati</h2>
+      <div>📦 <b>${clients.length}</b> clienti · 📷 <b>${nPhotos}</b> foto · 📝 <b>${nNotes}</b> note · 🗂 <b>${routes.length}</b> giri salvati · 📅 <b>${days.length}</b> giornate</div>
+      <div class="muted small" style="margin-top:8px;">Tutto è salvato solo su questo telefono. Fai un backup ogni tanto: se cancelli i dati di Chrome, perdi tutto.</div>
+      <div class="muted small" style="margin-top:6px;">Versione app: <b id="buildInfo"></b></div>
+    </div>
+    <div class="card">
+      <h2>Esporta</h2>
+      <div class="muted small">Scarica un file con tutti i dati (foto comprese). Tienilo su Drive o mandatelo via email.</div>
+      <button class="btn" onclick="exportData()">⬇️ Scarica backup</button>
+    </div>
+    <div class="card">
+      <h2>Importa</h2>
+      <div class="muted small">Ripristina da un backup precedente. I clienti con lo stesso ID vengono sovrascritti.</div>
+      <input type="file" id="impFile" accept=".json" style="display:none" onchange="importData(this)">
+      <button class="btn ghost" onclick="document.getElementById('impFile').click()">⬆️ Carica backup</button>
+    </div>`;
+  document.getElementById('buildInfo').textContent = BUILD;
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify({v:2, exported:Date.now(), start:START, clients, routes, days})],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'giro-consegne-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('Backup scaricato');
+}
+async function importData(input){
+  if(!input.files || !input.files[0]) return;
+  try{
+    const data = JSON.parse(await input.files[0].text());
+    for(const c of (data.clients||[])) await putClient(c);
+    for(const r of (data.routes||[])) await putRoute(r);
+    for(const d of (data.days||[])) await putDay(d);
+    if(data.start) { START=data.start; await tx('meta','readwrite',s=>s.put({k:'start',v:START})); }
+    await loadAll(); render();
+    toast('Backup importato ✓');
+  }catch(e){ toast('File non valido'); }
+}
+
+/* ============ Boot ============ */
+function render(){
+  if(view==='clienti') renderClienti();
+  else if(view==='giro') renderGiro();
+  else if(view==='storico') renderStorico();
+  else renderBackup();
+}
+const SEED_DATA = {"clients":[{"id":"imp001","name":"Pizza Planet","address":"Via Asmara 35, Bonagia","phone":"","agente":"","agentePhone":"","notes":"Apre alle 18:00, chiuso lunedì - verificare ricezione mattutina","photo":null,"history":[],"lat":38.0639764,"lng":12.5969684,"oraDa":"18:00","oraA":""},{"id":"imp002","name":"ArtePizza","address":"Via Cornino, Custonaci","phone":"","agente":"","agentePhone":"","notes":"Ingresso di Cornino arrivando da sud","photo":null,"history":[],"lat":38.0876464,"lng":12.659152,"oraDa":"","oraA":""},{"id":"imp003","name":"Lido Baia Cornino","address":"Via Stresa 24, Custonaci","phone":"","agente":"","agentePhone":"","notes":"Zona spiaggia","photo":null,"history":[],"lat":38.0890083,"lng":12.6574659,"oraDa":"","oraA":""},{"id":"imp004","name":"Gelateria Freezer","address":"Via Pigafetta 1, Cornino","phone":"","agente":"","agentePhone":"","notes":"Fronte mare","photo":null,"history":[],"lat":38.0902505,"lng":12.6618593,"oraDa":"","oraA":""},{"id":"imp005","name":"Panificio Basile Giuseppe","address":"Via Mercè 17, Trapani","phone":"","agente":"","agentePhone":"","notes":"Chiude alle 14:00","photo":null,"history":[],"lat":38.0165375,"lng":12.5133184,"oraDa":"","oraA":"14:00"},{"id":"imp006","name":"Take Way di Basile Alberta","address":"Via Spalti 27/29, Trapani","phone":"","agente":"","agentePhone":"","notes":"Insegna: Bettina couscuseria","photo":null,"history":[],"lat":38.0163126,"lng":12.5170428,"oraDa":"","oraA":""},{"id":"imp007","name":"Bar Giacalone","address":"Via G.B. Fardella 2, Trapani","phone":"","agente":"012","agentePhone":"","notes":"Aperto quasi h24 - a 100 m dal Bar K2","photo":null,"history":[],"lat":38.0186199,"lng":12.5177561,"oraDa":"","oraA":""},{"id":"imp008","name":"La Bettolaccia","address":"Via Gen. E. Fardella 23, Trapani","phone":"","agente":"","agentePhone":"","notes":"Centro storico, ingresso piccolo - occhio parcheggio","photo":null,"history":[],"lat":38.0149676,"lng":12.5067996,"oraDa":"","oraA":""},{"id":"imp009","name":"Pasticceria La Rinascente","address":"Via Gatti 4, Trapani","phone":"","agente":"016","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.0166207,"lng":12.5126784,"oraDa":"","oraA":""},{"id":"imp010","name":"Cleg snc di Di Giovanni","address":"Via della Cuba 34, Trapani","phone":"","agente":"025","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.0157171,"lng":12.5106174,"oraDa":"","oraA":""},{"id":"imp011","name":"RDM di Nolfo Giuseppe","address":"Via Carosio 22, Trapani","phone":"","agente":"025","agentePhone":"","notes":"Cliente ricorrente","photo":null,"history":[],"lat":38.0160421,"lng":12.509761,"oraDa":"","oraA":""},{"id":"imp012","name":"La Lampara","address":"Via Torrearsa 63/65, Trapani","phone":"0923 21311","agente":"003","agentePhone":"","notes":"Intestatario: GinoSE sas - angolo Via Carosio, sosta doppia con RDM","photo":null,"history":[],"lat":38.0159473,"lng":12.5095355,"oraDa":"","oraA":""},{"id":"imp013","name":"Ciotta Paolo (Sapurito)","address":"Via Turretta 13, Trapani","phone":"","agente":"012","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.0149621,"lng":12.5090007,"oraDa":"","oraA":""},{"id":"imp014","name":"Trattoria da Salvatore F.lli Patti","address":"Via Nunzio Nasi 19/21, Trapani","phone":"","agente":"012","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.0152371,"lng":12.5080411,"oraDa":"","oraA":""},{"id":"imp015","name":"Panificio Torrente","address":"Via Nunzio Nasi 67, Trapani","phone":"347 999 8827","agente":"012","agentePhone":"","notes":"Lunedì chiuso al pubblico - chiamare prima","photo":null,"history":[],"lat":38.015503,"lng":12.5066404,"oraDa":"","oraA":""},{"id":"imp016","name":"Pizzeria Calvino","address":"Via Nunzio Nasi 71, Trapani","phone":"0923 21464","agente":"012","agentePhone":"","notes":"Apre solo la sera - porta accanto al Torrente","photo":null,"history":[],"lat":38.015499,"lng":12.5065622,"oraDa":"18:00","oraA":""},{"id":"imp017","name":"Dimora Botteghelle","address":"C.so Vittorio Emanuele 154/156, Trapani","phone":"","agente":"025","agentePhone":"","notes":"B&B, ricevono sempre","photo":null,"history":[],"lat":38.0164026,"lng":12.5044879,"oraDa":"","oraA":""},{"id":"imp018","name":"Nereide srls","address":"Via delle Sirene snc, Trapani","phone":"","agente":"025","agentePhone":"","notes":"POSIZIONE APPROSSIMATIVA (snc) - salvare GPS preciso al primo passaggio","photo":null,"history":[],"lat":38.0175367,"lng":12.5005308,"oraDa":"","oraA":""},{"id":"imp019","name":"Ristorante Camío","address":"Via Carolina 58, Trapani","phone":"","agente":"025","agentePhone":"","notes":"Punta Torre di Ligny","photo":null,"history":[],"lat":38.0175964,"lng":12.4987041,"oraDa":"","oraA":""},{"id":"imp020","name":"Sapuri srls","address":"Piazza Giacomo Matteotti, Trapani","phone":"","agente":"012","agentePhone":"","notes":"POSIZIONE APPROSSIMATIVA (senza civico) - salvare GPS preciso","photo":null,"history":[],"lat":38.0163307,"lng":12.5077926,"oraDa":"","oraA":""},{"id":"imp021","name":"Panificio Martinez","address":"Via Corallai 17, Trapani","phone":"","agente":"007","agentePhone":"","notes":"DDT civico 17, Maps 30 - stessa via corta","photo":null,"history":[],"lat":38.016277,"lng":12.5031297,"oraDa":"","oraA":""},{"id":"imp022","name":"Bar K2","address":"Via S. Giovanni Bosco 7, Trapani","phone":"","agente":"012","agentePhone":"","notes":"Apre alle 5:00","photo":null,"history":[],"lat":38.0181713,"lng":12.5189068,"oraDa":"05:00","oraA":""},{"id":"imp023","name":"Bar della Notte (Quelli della notte)","address":"Via Calatafimi 12, Trapani","phone":"0923 20830","agente":"","agentePhone":"","notes":"Locale notturno (apre 20:30) - chiamare per ricezione mattutina","photo":null,"history":[],"lat":38.0193135,"lng":12.5266273,"oraDa":"20:30","oraA":""},{"id":"imp024","name":"Renda Antonio","address":"Via Messina 10, Trapani","phone":"","agente":"","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.0211894,"lng":12.5283163,"oraDa":"","oraA":""},{"id":"imp025","name":"Cocktails Dreams","address":"Via Tunisi 74, Trapani","phone":"","agente":"","agentePhone":"","notes":"Aperto h24","photo":null,"history":[],"lat":38.02541,"lng":12.5266982,"oraDa":"","oraA":""},{"id":"imp026","name":"Panificio Gervasi","address":"Via Orti 79, Trapani","phone":"","agente":"","agentePhone":"","notes":"Orario 6:00-14:00","photo":null,"history":[],"lat":38.0227776,"lng":12.5336106,"oraDa":"06:00","oraA":"14:00"},{"id":"imp027","name":"De Martino Michele Abramo","address":"Via Antonio Esposito 25, Trapani","phone":"","agente":"012","agentePhone":"","notes":"Vicino al deposito SIGENE","photo":null,"history":[],"lat":38.0153861,"lng":12.5477962,"oraDa":"","oraA":""},{"id":"imp028","name":"Bar Speedy Gnam","address":"Via Nicolò Riccio 25, Trapani","phone":"","agente":"012","agentePhone":"","notes":"Apre alle 6:30","photo":null,"history":[],"lat":38.0203638,"lng":12.5224309,"oraDa":"06:30","oraA":""},{"id":"imp029","name":"Room of Andrea","address":"Viale Regina Margherita 31, Trapani","phone":"","agente":"025","agentePhone":"","notes":"Hotel Palazzo Platamone, reception h24","photo":null,"history":[],"lat":38.0187634,"lng":12.516185,"oraDa":"","oraA":""},{"id":"imp030","name":"Irresistibile Pizza","address":"Via Vespri 194/196, Trapani","phone":"351 328 1215","agente":"011","agentePhone":"","notes":"Pizzeria serale (apre 18:00) - chiamare prima","photo":null,"history":[],"lat":38.0189364,"lng":12.5294164,"oraDa":"18:00","oraA":""},{"id":"imp031","name":"Associazione Live Onlus","address":"Via Marino Torre 4, Trapani","phone":"","agente":"","agentePhone":"","notes":"","photo":null,"history":[],"lat":38.018154,"lng":12.5181977,"oraDa":"","oraA":""},{"id":"imp032","name":"AC Life Style Beach","address":"Lungomare Dante Alighieri, Trapani","phone":"344 070 5051","agente":"025","agentePhone":"","notes":"Lido, apre alle 8:00","photo":null,"history":[],"lat":38.0217902,"lng":12.5195482,"oraDa":"08:00","oraA":""},{"id":"imp033","name":"Lido Valenti","address":"Lungomare Dante Alighieri, Casa Santa","phone":"339 430 0043","agente":"012","agentePhone":"","notes":"Cliente ricorrente - apre alle 9:00","photo":null,"history":[],"lat":38.037899,"lng":12.5385227,"oraDa":"09:00","oraA":""},{"id":"imp034","name":"Naìs Beach Club","address":"Lungomare Dante Alighieri, Casa Santa","phone":"0923 873536","agente":"025","agentePhone":"","notes":"Apre alle 9:00 - a 200 m dal Lido Valenti","photo":null,"history":[],"lat":38.037264,"lng":12.5377389,"oraDa":"09:00","oraA":""},{"id":"imp035","name":"Isla Blanca","address":"Lungomare Dante Alighieri 18, Casa Santa","phone":"","agente":"016","agentePhone":"","notes":"Lido, 8:30-21:30","photo":null,"history":[],"lat":38.0390322,"lng":12.5399456,"oraDa":"08:30","oraA":"21:30"},{"id":"imp036","name":"Baia dei Mulini Resort & Spa","address":"Lungomare Dante Alighieri, Erice","phone":"0923 584111","agente":"011","agentePhone":"","notes":"Hotel h24 - chiedere ingresso fornitori","photo":null,"history":[],"lat":38.0409683,"lng":12.5418652,"oraDa":"","oraA":""},{"id":"imp037","name":"Gusto di Basciano Salvatore","address":"P.zza Vittorio Emanuele II 24, Paceco","phone":"324 843 6904","agente":"","agentePhone":"","notes":"Apre alle 18:30 (sab anche pranzo)","photo":null,"history":[],"lat":37.9813507,"lng":12.5577863,"oraDa":"18:30","oraA":""},{"id":"imp038","name":"Le Vecchie Mura","address":"Strada Marsala 229, Rilievo (Misiliscemi)","phone":"329 337 4739","agente":"","agentePhone":"","notes":"Pizzeria serale, lunedì chiusa","photo":null,"history":[],"lat":37.9220647,"lng":12.5439166,"oraDa":"19:00","oraA":""},{"id":"imp039","name":"Due Bocconi di Battiata Ivana","address":"Via Gen. E. Rinaldo 189/191, Marausa","phone":"349 678 6655","agente":"","agentePhone":"","notes":"Gastronomia 8:00-20:30 - vicino a Il Cannolo","photo":null,"history":[],"lat":37.9373621,"lng":12.5095338,"oraDa":"08:00","oraA":"20:30"}],"routes":[{"id":"r001","name":"Giro Custonaci","clientIds":["imp001","imp002","imp003","imp004"]},{"id":"r002","name":"Litoranea Casa Santa","clientIds":["imp033","imp034","imp035","imp036"]}]};
+async function seedData(){
+  const meta = await getAll('meta');
+  if(meta.some(m=>m.k==='seeded_v1')) return;
+  const existing = await getAll('clients');
+  const existingR = await getAll('routes');
+  for(const c of SEED_DATA.clients) if(!existing.some(x=>x.id===c.id)) await putClient(c);
+  for(const r of SEED_DATA.routes) if(!existingR.some(x=>x.id===r.id)) await putRoute(r);
+  await tx('meta','readwrite',s=>s.put({k:'seeded_v1', v:true}));
+}
+const BUILD = 'build 17 · 15/08/26';
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+document.getElementById('buildTag').textContent = BUILD;
+openDB().then(seedData).then(loadAll).then(()=>go('clienti'));
+</script>
+</body>
+</html>
