@@ -351,18 +351,7 @@ function showClient(id){
   const hist = (c.history||[]).slice().reverse();
   const gallery = clientPhotos(c);
   openSheet(`
-    ${gallery.length?`<img class="photo-big" src="${gallery[0]}" alt="Foto ${esc(c.name)}">`:''}
-    <div class="card">
-      <h2>Foto del posto (${gallery.length})</h2>
-      <div class="muted small" style="margin-bottom:6px;">Insegna, ingresso fornitori, dove parcheggiare... La prima è la copertina.</div>
-      <div id="galBox">${gallery.map((p,i)=>`<span style="position:relative;display:inline-block;">
-        <img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">
-        ${i>0?`<button onclick="setCover('${c.id}',${i})" title="Rendi copertina" style="position:absolute;bottom:2px;left:2px;border:0;background:var(--cargo);color:var(--cargo-ink);border-radius:6px;font-size:11px;font-weight:800;padding:1px 5px;">★</button>`:''}
-        <button onclick="delClientPhoto('${c.id}',${i})" style="position:absolute;top:0;right:2px;border:0;background:var(--warn);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:800;">×</button>
-      </span>`).join('') || '<div class="muted small">Nessuna foto ancora.</div>'}</div>
-      <input type="file" id="cliFiles" accept="image/*" capture="environment" multiple style="display:none" onchange="addClientPhotos('${c.id}',this)">
-      <button class="btn ghost" onclick="document.getElementById('cliFiles').click()">📷 Aggiungi foto del posto</button>
-    </div>
+
     <div class="card">
       <div style="font-size:19px;font-weight:800;">${esc(c.name)}</div>
       <div class="muted">${esc(c.address||'')}</div>
@@ -400,6 +389,21 @@ function showClient(id){
           <p>${esc(h.text)}</p>
           ${(h.photos&&h.photos.length)?`<div>${h.photos.map(p=>`<img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">`).join('')}</div>`:''}
         </div>`).join('') : '<div class="muted">Nessuna nota ancora.</div>'}
+    </div>
+    <div class="card">
+      <h2>Foto del posto (${gallery.length})</h2>
+      <div class="muted small" style="margin-bottom:6px;">Insegna, ingresso fornitori, dove parcheggiare... La prima è la copertina.</div>
+      <div id="galBox">${gallery.map((p,i)=>`<span style="position:relative;display:inline-block;">
+        <img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">
+        ${i>0?`<button onclick="setCover('${c.id}',${i})" title="Rendi copertina" style="position:absolute;bottom:2px;left:2px;border:0;background:var(--cargo);color:var(--cargo-ink);border-radius:6px;font-size:11px;font-weight:800;padding:1px 5px;">★</button>`:''}
+        <button onclick="delClientPhoto('${c.id}',${i})" style="position:absolute;top:0;right:2px;border:0;background:var(--warn);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:800;">×</button>
+      </span>`).join('') || '<div class="muted small">Nessuna foto ancora.</div>'}</div>
+      <input type="file" id="cliCam" accept="image/*" capture="environment" multiple style="display:none" onchange="addClientPhotos('${c.id}',this)">
+      <input type="file" id="cliGal" accept="image/*" multiple style="display:none" onchange="addClientPhotos('${c.id}',this)">
+      <div class="row" style="gap:8px;margin-top:8px;">
+        <button class="btn ghost sm grow" onclick="document.getElementById('cliCam').click()">📷 Scatta foto</button>
+        <button class="btn ghost sm grow" onclick="document.getElementById('cliGal').click()">🖼️ Dalla galleria</button>
+      </div>
     </div>
     <button class="btn danger" onclick="removeClient('${c.id}')">Elimina cliente</button>
   `);
@@ -452,9 +456,12 @@ function editClient(id){
 
       <label>Foto (facciata / referente)</label>
       <div id="photoPrev">${tempPhoto?`<img class="photo-big" src="${tempPhoto}">`:''}</div>
-      <input type="file" id="f_photo" accept="image/*" capture="environment" style="display:none"
-        onchange="onPhoto(this)">
-      <button class="btn ghost" onclick="document.getElementById('f_photo').click()">📷 ${tempPhoto?'Cambia foto':'Scatta / scegli foto'}</button>
+      <input type="file" id="f_photo" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(this)">
+      <input type="file" id="f_photoGal" accept="image/*" style="display:none" onchange="onPhoto(this)">
+      <div class="row" style="gap:8px;">
+        <button class="btn ghost sm grow" onclick="document.getElementById('f_photo').click()">📷 Scatta</button>
+        <button class="btn ghost sm grow" onclick="document.getElementById('f_photoGal').click()">🖼️ Dalla galleria</button>
+      </div>
 
       <label>Posizione GPS ${hasGPS(c)?`— salvata ✓ (${c.lat.toFixed(5)}, ${c.lng.toFixed(5)})`:'— non salvata'}</label>
       <div class="muted small" style="margin-bottom:6px;">Metodo 1: premi il pulsante quando sei davanti al negozio.</div>
@@ -896,7 +903,11 @@ function openProblem(dayId, idx){
       <label>Foto (colli danneggiati, DDT annotato...)</label>
       <div id="probThumbs"></div>
       <input type="file" id="probFiles" accept="image/*" capture="environment" multiple style="display:none" onchange="onProbPhotos(this)">
-      <button class="btn ghost" onclick="document.getElementById('probFiles').click()">📷 Scatta / aggiungi foto</button>
+      <input type="file" id="probGal" accept="image/*" multiple style="display:none" onchange="onProbPhotos(this)">
+      <div class="row" style="gap:8px;margin-top:8px;">
+        <button class="btn ghost sm grow" onclick="document.getElementById('probFiles').click()">📷 Scatta foto</button>
+        <button class="btn ghost sm grow" onclick="document.getElementById('probGal').click()">🖼️ Dalla galleria</button>
+      </div>
       <div class="muted small" style="margin-top:4px;">Puoi aggiungere quante foto vuoi, anche in più riprese.</div>
       <button class="btn cargo" onclick="saveProblem('${dayId}',${idx})">Salva problema</button>
     </div>
@@ -1020,7 +1031,7 @@ async function migrateAgents(){
   }
   await tx('meta','readwrite',s=>s.put({k:'agents_v1', v:true}));
 }
-const BUILD = 'build 21 · 16/08/26';
+const BUILD = 'build 22 · 16/08/26';
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
