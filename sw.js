@@ -1,5 +1,5 @@
-/* Giro Consegne - service worker (build 19) */
-const CACHE = 'giro-consegne-b19';
+/* Giro Consegne - service worker (build 20) */
+const CACHE = 'giro-consegne-b20';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -280,6 +280,7 @@ function renderClientList(){
         ${prob?`<span class="flag warn">⚠ ${esc(prob.text.slice(0,26))}${prob.text.length>26?'…':''}</span>`:''}
       </div>
       ${c.phone?`<a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()" style="text-decoration:none;font-size:22px;padding:8px;background:var(--bg);border-radius:10px;">📞</a>`:''}
+      ${c.agentePhone?`<a href="tel:${esc(c.agentePhone)}" onclick="event.stopPropagation()" title="Chiama agente ${esc(c.agente||'')}" style="text-decoration:none;font-size:20px;padding:8px;background:var(--bg);border-radius:10px;">👔</a>`:''}
       <div style="font-size:20px;color:var(--line);">›</div>
     </div>`;
   }).join('');
@@ -958,7 +959,7 @@ async function migrateAgents(){
   }
   await tx('meta','readwrite',s=>s.put({k:'agents_v1', v:true}));
 }
-const BUILD = 'build 19 · 16/08/26';
+const BUILD = 'build 20 · 16/08/26';
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
