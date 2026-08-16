@@ -109,6 +109,15 @@
   .stopdone{background:#EAF6EF;border-radius:10px;padding:8px !important;margin:4px 0;}
   .stopprob{background:#FBEAE7;border-radius:10px;padding:8px !important;margin:4px 0;}
   .stbadge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;color:#fff;letter-spacing:.5px;}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:80;display:none;
+    align-items:center;justify-content:center;flex-direction:column;padding:12px;}
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:10px;}
+  .lightbox .cap{color:#fff;font-weight:700;margin-top:10px;text-align:center;font-size:15px;}
+  .lightbox .cls{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.15);color:#fff;
+    border:0;border-radius:50%;width:40px;height:40px;font-size:22px;font-weight:800;}
+  .lightbox .nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);
+    color:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;font-weight:800;}
   .toast.show{opacity:1;}
   .searchbar{position:relative; margin-bottom:12px;}
   .searchbar input{padding-left:38px;}
@@ -134,6 +143,13 @@
 </nav>
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="cls" onclick="closeLightbox(event,1)">×</button>
+  <button class="nav" style="left:10px;" onclick="lbStep(event,-1)">‹</button>
+  <button class="nav" style="right:10px;" onclick="lbStep(event,1)">›</button>
+  <img id="lbImg" src="" alt="">
+  <div class="cap" id="lbCap"></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -270,9 +286,9 @@ function renderClientList(){
   }
   el.innerHTML = list.map(c=>{
     const prob = lastProblem(c);
-    return `<div class="card client" onclick="showClient('${c.id}')">
-      <div class="thumb">${clientPhotos(c).length?`<img src="${clientPhotos(c)[0]}" alt="">`:'🏪'}</div>
-      <div class="grow">
+    return `<div class="card client">
+      <div class="thumb" onclick="event.stopPropagation();${clientPhotos(c).length?`openLightbox('${c.id}',0)`:`editClient('${c.id}')`}">${clientPhotos(c).length?`<img src="${clientPhotos(c)[0]}" alt="">`:'🏪'}</div>
+      <div class="grow" onclick="showClient('${c.id}')" style="cursor:pointer;">
         <div class="name">${esc(c.name)}</div>
         <div class="addr">${esc(c.address||'—')}</div>
         ${hasGPS(c)?'<span class="flag gps">GPS ✓</span>':'<span class="flag nogps">no GPS</span>'}
@@ -281,7 +297,7 @@ function renderClientList(){
       </div>
       ${c.phone?`<a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()" style="text-decoration:none;font-size:22px;padding:8px;background:var(--bg);border-radius:10px;">📞</a>`:''}
       ${c.agentePhone?`<a href="tel:${esc(c.agentePhone)}" onclick="event.stopPropagation()" title="Chiama agente ${esc(c.agente||'')}" style="text-decoration:none;font-size:20px;padding:8px;background:var(--bg);border-radius:10px;">👔</a>`:''}
-      <div style="font-size:20px;color:var(--line);">›</div>
+      <div style="font-size:20px;color:var(--line);" onclick="showClient('${c.id}')">›</div>
     </div>`;
   }).join('');
 }
@@ -304,6 +320,32 @@ window.addEventListener('popstate', e=>{
 let navFromPop = false;
 document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeSheet(); });
 
+/* --- Visualizzatore foto a schermo intero --- */
+let lbList = [], lbIdx = 0, lbName = '';
+function openLightbox(id, i){
+  const c = clients.find(x=>x.id===id); if(!c) return;
+  lbList = clientPhotos(c); if(!lbList.length) return;
+  lbIdx = i || 0; lbName = c.name;
+  lbShow();
+  document.getElementById('lightbox').classList.add('open');
+}
+function lbShow(){
+  document.getElementById('lbImg').src = lbList[lbIdx];
+  document.getElementById('lbCap').textContent =
+    lbName + (lbList.length>1 ? `  (${lbIdx+1}/${lbList.length})` : '');
+  const show = lbList.length>1 ? 'block' : 'none';
+  document.querySelectorAll('#lightbox .nav').forEach(b=>b.style.display=show);
+}
+function lbStep(e, d){
+  e.stopPropagation();
+  lbIdx = (lbIdx + d + lbList.length) % lbList.length;
+  lbShow();
+}
+function closeLightbox(e, force){
+  if(!force && e && e.target.tagName === 'IMG') return; // tocco sull'immagine: non chiudere
+  if(e) e.stopPropagation();
+  document.getElementById('lightbox').classList.remove('open');
+}
 /* --- Galleria foto cliente --- */
 function clientPhotos(c){
   // c.photos = galleria; c.photo = copertina (retrocompatibilità)
@@ -394,7 +436,7 @@ function showClient(id){
       <h2>Foto del posto (${gallery.length})</h2>
       <div class="muted small" style="margin-bottom:6px;">Insegna, ingresso fornitori, dove parcheggiare... La prima è la copertina.</div>
       <div id="galBox">${gallery.map((p,i)=>`<span style="position:relative;display:inline-block;">
-        <img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">
+        <img class="pthumb" src="${p}" onclick="openLightbox('${c.id}',${i})">
         ${i>0?`<button onclick="setCover('${c.id}',${i})" title="Rendi copertina" style="position:absolute;bottom:2px;left:2px;border:0;background:var(--cargo);color:var(--cargo-ink);border-radius:6px;font-size:11px;font-weight:800;padding:1px 5px;">★</button>`:''}
         <button onclick="delClientPhoto('${c.id}',${i})" style="position:absolute;top:0;right:2px;border:0;background:var(--warn);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:800;">×</button>
       </span>`).join('') || '<div class="muted small">Nessuna foto ancora.</div>'}</div>
@@ -618,6 +660,7 @@ function renderPickList(){
   el.innerHTML = list.length ? list.map(c=>`
     <label class="checkline">
       <input type="checkbox" ${selected.has(c.id)?'checked':''} onchange="toggleSel('${c.id}',this.checked)">
+      ${clientPhotos(c).length?`<img src="${clientPhotos(c)[0]}" onclick="event.preventDefault();event.stopPropagation();openLightbox('${c.id}',0)" class="pthumb" style="width:40px;height:40px;margin:0 6px 0 0;">`:''}
       <div class="grow">
         <div style="font-weight:700;">${esc(c.name)}</div>
         <div class="muted small">${esc(c.address||'')} ${hasGPS(c)?'· GPS ✓':'· <b>manca GPS</b>'} ${fmtWindow(c)?'· <b style="color:#7A5800;">'+fmtWindow(c)+'</b>':''}</div>
@@ -735,8 +778,9 @@ function renderRouteResult(noGpsCount, restored){
     const s = sim[i], w = parseWin(c);
     return `<div class="stop">
       <div class="num">${i+1}</div>
+      ${clientPhotos(c).length?`<img src="${clientPhotos(c)[0]}" onclick="openLightbox('${c.id}',0)" class="pthumb" style="width:46px;height:46px;margin:0 8px 0 0;">`:''}
       <div class="grow">
-        <div style="font-weight:700;">${esc(c.name)}</div>
+        <div onclick="showClient('${c.id}')" style="font-weight:700;text-decoration:underline dotted var(--line);cursor:pointer;">${esc(c.name)}</div>
         <div class="muted small">${esc(c.address||'')}</div>
         ${fmtWindow(c)?`<div class="dist" style="color:#7A5800;">${fmtWindow(c)} ricezione · arrivo stimato ~${fmtMin(s.eta)}</div>`:''}
         ${s.wait>1?`<div class="dist" style="color:#7A5800;">⏳ attesa di ~${Math.round(s.wait)} min (apre alle ${fmtMin(w.da)})</div>`:''}
@@ -843,9 +887,9 @@ function renderStorico(){
           return `
           <div class="checkline ${rowCls}" style="align-items:flex-start;">
             <div style="font-weight:800;width:22px;">${i+1}.</div>
-            ${cl&&clientPhotos(cl).length?`<img src="${clientPhotos(cl)[0]}" onclick="this.classList.toggle('exp')" class="pthumb" style="width:52px;height:52px;margin:0 8px 0 0;">`:''}
+            ${cl&&clientPhotos(cl).length?`<img src="${clientPhotos(cl)[0]}" onclick="openLightbox('${cl.id}',0)" class="pthumb" style="width:52px;height:52px;margin:0 8px 0 0;">`:''}
             <div class="grow">
-              <div style="font-weight:700;">${esc(s.name)} ${badge}</div>
+              <div ${cl?`onclick="showClient('${cl.id}')" style="font-weight:700;text-decoration:underline dotted var(--line);cursor:pointer;"`:'style="font-weight:700;"'}>${esc(s.name)} ${badge}</div>
               ${cl&&fmtWindow(cl)?`<div class="muted small" style="color:#7A5800;font-weight:700;">${fmtWindow(cl)} ricezione</div>`:''}
               <div class="muted small" style="margin-top:2px;">Ora prevista: <input type="time" value="${esc(s.eta||'')}" onchange="setEta('${d.id}',${i},this.value)" style="width:auto;padding:4px 8px;font-size:14px;border:1.5px solid var(--line);border-radius:8px;"></div>
               ${s.note?`<div class="muted small" style="margin-top:4px;">⚠ ${esc(s.note)}</div>`:''}
@@ -1039,7 +1083,7 @@ async function seedData2(){
   for(const c of SEED_2.clients) if(!ex.some(x=>x.id===c.id)) await putClient(c);
   await tx('meta','readwrite',s=>s.put({k:'seeded_v2', v:true}));
 }
-const BUILD = 'build 23 · 16/08/26';
+const BUILD = 'build 24 · 16/08/26';
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
