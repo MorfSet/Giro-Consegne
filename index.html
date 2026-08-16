@@ -271,7 +271,7 @@ function renderClientList(){
   el.innerHTML = list.map(c=>{
     const prob = lastProblem(c);
     return `<div class="card client" onclick="showClient('${c.id}')">
-      <div class="thumb">${c.photo?`<img src="${c.photo}" alt="">`:'🏪'}</div>
+      <div class="thumb">${clientPhotos(c).length?`<img src="${clientPhotos(c)[0]}" alt="">`:'🏪'}</div>
       <div class="grow">
         <div class="name">${esc(c.name)}</div>
         <div class="addr">${esc(c.address||'—')}</div>
@@ -304,11 +304,65 @@ window.addEventListener('popstate', e=>{
 let navFromPop = false;
 document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeSheet(); });
 
+/* --- Galleria foto cliente --- */
+function clientPhotos(c){
+  // c.photos = galleria; c.photo = copertina (retrocompatibilità)
+  if(Array.isArray(c.photos) && c.photos.length) return c.photos;
+  return c.photo ? [c.photo] : [];
+}
+async function persistPhotos(c, arr){
+  c.photos = arr;
+  c.photo = arr[0] || null; // copertina usata nelle liste
+  await putClient(c);
+  await loadAll();
+}
+async function addClientPhotos(id, input){
+  const c = clients.find(x=>x.id===id); if(!c || !input.files) return;
+  const arr = clientPhotos(c).slice();
+  let n = 0;
+  for(const f of input.files){
+    try{ arr.push(await processPhoto(f)); n++; }catch(e){}
+  }
+  input.value = '';
+  if(!n) return;
+  await persistPhotos(c, arr);
+  showClient(id); render();
+  toast(n>1 ? `${n} foto aggiunte` : 'Foto aggiunta');
+}
+async function delClientPhoto(id, i){
+  const c = clients.find(x=>x.id===id); if(!c) return;
+  if(!confirm('Eliminare questa foto?')) return;
+  const arr = clientPhotos(c).slice();
+  arr.splice(i,1);
+  await persistPhotos(c, arr);
+  showClient(id); render();
+}
+async function setCover(id, i){
+  const c = clients.find(x=>x.id===id); if(!c) return;
+  const arr = clientPhotos(c).slice();
+  const [p] = arr.splice(i,1);
+  arr.unshift(p);
+  await persistPhotos(c, arr);
+  showClient(id); render();
+  toast('Copertina aggiornata');
+}
 function showClient(id){
   const c = clients.find(x=>x.id===id); if(!c) return;
   const hist = (c.history||[]).slice().reverse();
+  const gallery = clientPhotos(c);
   openSheet(`
-    ${c.photo?`<img class="photo-big" src="${c.photo}" alt="Foto ${esc(c.name)}">`:''}
+    ${gallery.length?`<img class="photo-big" src="${gallery[0]}" alt="Foto ${esc(c.name)}">`:''}
+    <div class="card">
+      <h2>Foto del posto (${gallery.length})</h2>
+      <div class="muted small" style="margin-bottom:6px;">Insegna, ingresso fornitori, dove parcheggiare... La prima è la copertina.</div>
+      <div id="galBox">${gallery.map((p,i)=>`<span style="position:relative;display:inline-block;">
+        <img class="pthumb" src="${p}" onclick="this.classList.toggle('exp')">
+        ${i>0?`<button onclick="setCover('${c.id}',${i})" title="Rendi copertina" style="position:absolute;bottom:2px;left:2px;border:0;background:var(--cargo);color:var(--cargo-ink);border-radius:6px;font-size:11px;font-weight:800;padding:1px 5px;">★</button>`:''}
+        <button onclick="delClientPhoto('${c.id}',${i})" style="position:absolute;top:0;right:2px;border:0;background:var(--warn);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:800;">×</button>
+      </span>`).join('') || '<div class="muted small">Nessuna foto ancora.</div>'}</div>
+      <input type="file" id="cliFiles" accept="image/*" capture="environment" multiple style="display:none" onchange="addClientPhotos('${c.id}',this)">
+      <button class="btn ghost" onclick="document.getElementById('cliFiles').click()">📷 Aggiungi foto del posto</button>
+    </div>
     <div class="card">
       <div style="font-size:19px;font-weight:800;">${esc(c.name)}</div>
       <div class="muted">${esc(c.address||'')}</div>
@@ -501,6 +555,12 @@ async function saveClient(id){
     oraA:  document.getElementById('f_oraA').value,
     notes:   document.getElementById('f_notes').value.trim(),
     photo:   tempPhoto,
+    photos:  (function(){
+      const old = existing ? clientPhotos(existing) : [];
+      if(!tempPhoto) return old.filter(p=>p!==(existing&&existing.photo));
+      if(old.length && tempPhoto === old[0]) return old;      // copertina invariata
+      return [tempPhoto].concat(old.filter(p=>p!==tempPhoto)); // nuova copertina in testa
+    })(),
     history: existing ? (existing.history||[]) : [],
   };
   if(!isNaN(lat) && !isNaN(lng)){ c.lat=lat; c.lng=lng; }
@@ -776,6 +836,7 @@ function renderStorico(){
           return `
           <div class="checkline ${rowCls}" style="align-items:flex-start;">
             <div style="font-weight:800;width:22px;">${i+1}.</div>
+            ${cl&&clientPhotos(cl).length?`<img src="${clientPhotos(cl)[0]}" onclick="this.classList.toggle('exp')" class="pthumb" style="width:52px;height:52px;margin:0 8px 0 0;">`:''}
             <div class="grow">
               <div style="font-weight:700;">${esc(s.name)} ${badge}</div>
               ${cl&&fmtWindow(cl)?`<div class="muted small" style="color:#7A5800;font-weight:700;">${fmtWindow(cl)} ricezione</div>`:''}
@@ -959,7 +1020,7 @@ async function migrateAgents(){
   }
   await tx('meta','readwrite',s=>s.put({k:'agents_v1', v:true}));
 }
-const BUILD = 'build 20 · 16/08/26';
+const BUILD = 'build 21 · 16/08/26';
 if('serviceWorker' in navigator && location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
